@@ -1,4 +1,4 @@
-module github.com/sas1024/gorm-loggable
+module github.com/LibertusDio/gorm-loggable
 
 require (
 	github.com/gofrs/uuid v3.1.0+incompatible

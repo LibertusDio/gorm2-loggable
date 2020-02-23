@@ -99,7 +99,7 @@ func addUpdateRecord(scope *gorm.Scope, opts options) error {
 		}
 	}
 
-	return scope.DB().Create(cl).Error
+	return scope.DB().Table(`change_logs`).Create(cl).Error
 }
 
 func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
@@ -130,7 +130,7 @@ func addRecord(scope *gorm.Scope, action string) error {
 		return nil
 	}
 
-	return scope.DB().Create(cl).Error
+	return scope.DB().Table(`change_logs`).Create(cl).Error
 }
 
 func computeUpdateDiff(scope *gorm.Scope) UpdateDiff {

@@ -52,7 +52,7 @@ func (p *Plugin) GetRecords(objectId string, prepare bool) (changes []ChangeLog,
 			}
 		}
 	}()
-	return changes, p.db.Where("object_id = ?", objectId).Find(&changes).Error
+	return changes, p.db.Table(`change_logs`).Where("object_id = ?", objectId).Find(&changes).Error
 }
 
 // GetLastRecord returns last by creation time (CreatedAt field) change log by provided object id.
@@ -74,5 +74,5 @@ func (p *Plugin) GetLastRecord(objectId string, prepare bool) (change ChangeLog,
 			}
 		}
 	}()
-	return change, p.db.Where("object_id = ?", objectId).Order("created_at DESC").Limit(1).Find(&change).Error
+	return change, p.db.Table(`change_logs`).Where("object_id = ?", objectId).Order("created_at DESC").Limit(1).Find(&change).Error
 }

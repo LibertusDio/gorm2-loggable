@@ -7,9 +7,6 @@ import (
 	"unicode"
 )
 
-const loggableTag = "gorm-loggable"
-const LoggableUserTag = "gorm-loggable:user"
-
 func isEqual(item1, item2 interface{}, except ...string) bool {
 	except = StringMap(except, ToSnakeCase)
 	m1, m2 := somethingToMapStringInterface(item1), somethingToMapStringInterface(item2)

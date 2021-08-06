@@ -23,7 +23,7 @@ func Register(db *gorm.DB, tablename string, opts ...Option) (Plugin, error) {
 	for _, option := range opts {
 		option(&o)
 	}
-	tn := "change_logs"
+	tn := DefaultTableName
 	if tablename != "" {
 		tn = tablename
 	}

@@ -28,7 +28,7 @@ type User struct{
 ```
 scope.Set(loggable.LoggableUserTag, *loggable.User{"name","id","class"})
 ```
-3. Changes after calling Create, Save, Update, Delete will be tracked.
+4. Changes after calling Create, Save, Update, Delete will be tracked.
 
 ## Customization
 You may add additional fields to change logs, that should be saved.  

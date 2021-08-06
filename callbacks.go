@@ -10,12 +10,6 @@ import (
 
 var im = newIdentityManager()
 
-const (
-	actionCreate = "create"
-	actionUpdate = "update"
-	actionDelete = "delete"
-)
-
 type UpdateDiff map[string]interface{}
 
 // Hook for after_query.

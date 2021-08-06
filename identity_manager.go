@@ -4,8 +4,9 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"github.com/jinzhu/copier"
 	"reflect"
+
+	"github.com/jinzhu/copier"
 )
 
 type identityMap map[string]interface{}

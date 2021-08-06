@@ -24,6 +24,10 @@ type User struct{
     loggable.LoggableModel
 }
 ```
+3. Set user to scope
+```
+scope.Set(loggable.LoggableUserTag, *loggable.User{"name","id","class"})
+```
 3. Changes after calling Create, Save, Update, Delete will be tracked.
 
 ## Customization

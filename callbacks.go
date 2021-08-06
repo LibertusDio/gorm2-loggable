@@ -112,6 +112,22 @@ func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
 		return nil, err
 	}
 
+	ui, ok := scope.Get(LoggableUserTag)
+	var u *User
+	if !ok {
+		u = &User{"unknown", "system", "unknown"}
+	} else {
+		u, ok = ui.(*User)
+		if !ok {
+			u = &User{"unknown", "system", "unknown"}
+		}
+	}
+	us := `{"name":"unknown","id":"system","class":"unknown"}`
+	ub, err := json.Marshal(u)
+	if err == nil {
+		us = string(ub)
+	}
+
 	return &ChangeLog{
 		ID:         id.String(),
 		Action:     action,
@@ -120,6 +136,7 @@ func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
 		RawObject:  string(rawObject),
 		RawMeta:    string(fetchChangeLogMeta(scope)),
 		RawDiff:    "null",
+		CreatedBy:  us,
 	}, nil
 }
 

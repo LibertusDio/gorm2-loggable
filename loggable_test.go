@@ -46,7 +46,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	database = database.LogMode(true)
-	_, err = Register(database)
+	_, err = Register(database, "")
 	if err != nil {
 		fmt.Println(err)
 		panic(err)

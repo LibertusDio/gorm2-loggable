@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"reflect"
 
-	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
+	uuid "github.com/satori/go.uuid"
 )
 
 var im = newIdentityManager()
@@ -51,7 +51,7 @@ func (p *Plugin) trackEntity(scope *gorm.Scope) {
 // Hook for after_create.
 func (p *Plugin) addCreated(scope *gorm.Scope) {
 	if isLoggable(scope.Value) && isEnabled(scope.Value) {
-		_ = addRecord(scope, actionCreate)
+		_ = p.addRecord(scope, actionCreate)
 	}
 }
 
@@ -70,17 +70,17 @@ func (p *Plugin) addUpdated(scope *gorm.Scope) {
 		}
 	}
 
-	_ = addUpdateRecord(scope, p.opts)
+	_ = p.addUpdateRecord(scope, p.opts)
 }
 
 // Hook for after_delete.
 func (p *Plugin) addDeleted(scope *gorm.Scope) {
 	if isLoggable(scope.Value) && isEnabled(scope.Value) {
-		_ = addRecord(scope, actionDelete)
+		_ = p.addRecord(scope, actionDelete)
 	}
 }
 
-func addUpdateRecord(scope *gorm.Scope, opts options) error {
+func (p *Plugin) addUpdateRecord(scope *gorm.Scope, opts options) error {
 	cl, err := newChangeLog(scope, actionUpdate)
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func addUpdateRecord(scope *gorm.Scope, opts options) error {
 		}
 	}
 
-	return scope.DB().Table(`change_logs`).Create(cl).Error
+	return scope.DB().Table(p.tablename).Create(cl).Error
 }
 
 func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
@@ -107,13 +107,13 @@ func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
 	if err != nil {
 		return nil, err
 	}
-	id, err := uuid.NewV4()
+	id := uuid.NewV4()
 	if err != nil {
 		return nil, err
 	}
 
 	return &ChangeLog{
-		ID:         id,
+		ID:         id.String(),
 		Action:     action,
 		ObjectID:   interfaceToString(scope.PrimaryKeyValue()),
 		ObjectType: scope.GetModelStruct().ModelType.Name(),
@@ -124,13 +124,13 @@ func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
 }
 
 // Writes new change log row to db.
-func addRecord(scope *gorm.Scope, action string) error {
+func (p *Plugin) addRecord(scope *gorm.Scope, action string) error {
 	cl, err := newChangeLog(scope, action)
 	if err != nil {
 		return nil
 	}
 
-	return scope.DB().Table(`change_logs`).Create(cl).Error
+	return scope.DB().Table(p.tablename).Create(cl).Error
 }
 
 func computeUpdateDiff(scope *gorm.Scope) UpdateDiff {

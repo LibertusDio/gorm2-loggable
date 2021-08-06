@@ -2,14 +2,14 @@
 
 Loggable is used to helps tracking changes and history of your [GORM](https://github.com/jinzhu/gorm) models.
 
-It creates `change_logs` table in your database and writes to all loggable models when they are changed.
+It use table named during register in your database and writes to all loggable models when they are changed.
 
 More documentation is available in [godoc](https://godoc.org/github.com/sas1024/gorm-loggable).
 
 ## Usage
-1. Register plugin using `loggable.Register(db)`.
+1. Register plugin using `loggable.Register(db,tablename)`.
 ```go
-plugin, err := Register(database) // database is a *gorm.DB
+plugin, err := Register(database, "change_logs") // database is a *gorm.DB
 if err != nil {
 	panic(err)
 }

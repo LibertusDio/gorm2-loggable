@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"time"
 
-	"github.com/gofrs/uuid"
 	"github.com/jinzhu/gorm"
 )
 
@@ -37,9 +35,9 @@ func (l LoggableModel) Enable(v bool)   { l.Disabled = !v }
 // Commonly, ChangeLog is stored in 'change_logs' table.
 type ChangeLog struct {
 	// Primary key of change logs.
-	ID uuid.UUID `gorm:"primary_key;"`
+	ID string `gorm:"primary_key;"`
 	// Timestamp, when change log was created.
-	CreatedAt time.Time `sql:"DEFAULT:current_timestamp"`
+	CreatedAt *int64 `sql:"DEFAULT:unix_timestamp"`
 	// Action type.
 	// On write, supports only 'create', 'update', 'delete',
 	// but on read can be anything.

@@ -163,7 +163,7 @@ func computeUpdateDiff(scope *gorm.Scope) UpdateDiff {
 	for _, name := range names {
 		ofv := ov.FieldByName(name).Interface()
 		nfv := nv.FieldByName(name).Interface()
-		if ofv != nfv {
+		if reflect.DeepEqual(ofv, nfv) {
 			diff[name] = DiffObject{
 				Old: ofv,
 				New: nfv,

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/jinzhu/gorm"
 	uuid "github.com/satori/go.uuid"
 )
@@ -163,7 +164,7 @@ func computeUpdateDiff(scope *gorm.Scope) UpdateDiff {
 	for _, name := range names {
 		ofv := ov.FieldByName(name).Interface()
 		nfv := nv.FieldByName(name).Interface()
-		if reflect.DeepEqual(ofv, nfv) {
+		if cmp.Equal(ofv, nfv) {
 			diff[name] = DiffObject{
 				Old: ofv,
 				New: nfv,

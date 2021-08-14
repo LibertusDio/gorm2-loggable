@@ -97,7 +97,7 @@ func getLoggableFieldNames(value interface{}) []string {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		value, ok := field.Tag.Lookup(loggableTag)
-		if !ok || value != "true" {
+		if ok && value == "disable" {
 			continue
 		}
 

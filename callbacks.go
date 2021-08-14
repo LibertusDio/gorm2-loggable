@@ -145,12 +145,12 @@ func (p *Plugin) addRecord(scope *gorm.Scope, action string) error {
 }
 
 func computeUpdateDiff(scope *gorm.Scope) UpdateDiff {
-	old := im.get(scope.Value, scope.PrimaryKeyValue())
-	if old == nil {
+	old, ok := scope.Get(LoggablePrevVersion)
+	if !ok {
 		return nil
 	}
 
-	ov := reflect.ValueOf(old)
+	ov := reflect.Indirect(reflect.ValueOf(old))
 	nv := reflect.Indirect(reflect.ValueOf(scope.Value))
 	names := getLoggableFieldNames(old)
 

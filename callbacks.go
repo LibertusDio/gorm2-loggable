@@ -11,6 +11,10 @@ import (
 var im = newIdentityManager()
 
 type UpdateDiff map[string]interface{}
+type DiffObject struct {
+	Old interface{} `json:"old"`
+	New interface{} `json:"new"`
+}
 
 // Hook for after_query.
 func (p *Plugin) trackEntity(scope *gorm.Scope) {
@@ -160,7 +164,10 @@ func computeUpdateDiff(scope *gorm.Scope) UpdateDiff {
 		ofv := ov.FieldByName(name).Interface()
 		nfv := nv.FieldByName(name).Interface()
 		if ofv != nfv {
-			diff[name] = nfv
+			diff[name] = DiffObject{
+				Old: ofv,
+				New: nfv,
+			}
 		}
 	}
 

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"reflect"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/jinzhu/gorm"
 	uuid "github.com/satori/go.uuid"
 )
@@ -131,7 +130,7 @@ func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
 		ID:         id.String(),
 		Action:     action,
 		ObjectID:   interfaceToString(scope.PrimaryKeyValue()),
-		ObjectType: scope.GetModelStruct().ModelType.Name(),
+		ObjectType: scope.TableName(),
 		RawObject:  string(rawObject),
 		RawMeta:    string(fetchChangeLogMeta(scope)),
 		RawDiff:    "null",
@@ -164,8 +163,8 @@ func computeUpdateDiff(scope *gorm.Scope) UpdateDiff {
 	for _, name := range names {
 		ofv := ov.FieldByName(name).Interface()
 		nfv := nv.FieldByName(name).Interface()
-		if cmp.Equal(ofv, nfv) {
-			diff[name] = DiffObject{
+		if !reflect.DeepEqual(ofv, nfv) {
+			diff[ToSnakeCaseRegEx(name)] = DiffObject{
 				Old: ofv,
 				New: nfv,
 			}

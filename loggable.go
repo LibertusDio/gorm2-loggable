@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 )
 
 // Interface is used to get metadata from your models.
@@ -23,7 +23,7 @@ type Interface interface {
 // LoggableModel is a root structure, which implement Interface.
 // Embed LoggableModel to your model so that Plugin starts tracking changes.
 type LoggableModel struct {
-	Disabled bool `sql:"-" json:"-"`
+	Disabled bool `gorm:"-"`
 }
 
 func (LoggableModel) Meta() interface{} { return nil }
@@ -37,7 +37,7 @@ type ChangeLog struct {
 	// Primary key of change logs.
 	ID string `gorm:"primary_key;"`
 	// Timestamp, when change log was created.
-	CreatedAt *int64 `sql:"DEFAULT:unix_timestamp"`
+	CreatedAt int64 `gorm:"autoCreateTime"`
 	// Action type.
 	// On write, supports only 'create', 'update', 'delete',
 	// but on read can be anything.
@@ -51,22 +51,22 @@ type ChangeLog struct {
 	ObjectType string `gorm:"index"`
 	// Raw representation of tracking object.
 	// todo(@sas1024): Replace with []byte, to reduce allocations. Would be major version.
-	RawObject string `sql:"type:JSON"`
+	RawObject string `gorm:"type:JSON"`
 	// Raw representation of tracking object's meta.
 	// todo(@sas1024): Replace with []byte, to reduce allocations. Would be major version.
-	RawMeta string `sql:"type:JSON"`
+	RawMeta string `gorm:"type:JSON"`
 	// Raw representation of diff's.
 	// todo(@sas1024): Replace with []byte, to reduce allocations. Would be major version.
-	RawDiff string `sql:"type:JSON"`
+	RawDiff string `gorm:"type:JSON"`
 	// Free field to store something you want, e.g. who creates change log.
 	// Not used field in gorm-loggable, but gorm tracks this field.
 	CreatedBy string `gorm:"index"`
 	// Field Object would contain prepared structure, parsed from RawObject as json.
 	// Use RegObjectType to register object types.
-	Object interface{} `sql:"-"`
+	Object interface{} `gorm:"-"`
 	// Field Meta would contain prepared structure, parsed from RawMeta as json.
 	// Use RegMetaType to register object's meta types.
-	Meta interface{} `sql:"-"`
+	Meta interface{} `gorm:"-"`
 }
 
 func (l *ChangeLog) prepareObject(objType reflect.Type) error {
@@ -106,8 +106,8 @@ func interfaceToString(v interface{}) string {
 	}
 }
 
-func fetchChangeLogMeta(scope *gorm.Scope) []byte {
-	val, ok := scope.Value.(Interface)
+func fetchChangeLogMeta(db *gorm.DB) []byte {
+	val, ok := db.Statement.Dest.(Interface)
 	if !ok {
 		return nil
 	}
@@ -126,4 +126,28 @@ func isLoggable(value interface{}) bool {
 func isEnabled(value interface{}) bool {
 	v, ok := value.(Interface)
 	return ok && v.isEnabled()
+}
+
+func getPrimaryKeyValue(db *gorm.DB, namePrimaryKey string) string {
+	valuePrimaryKey := ""
+	for _, field := range db.Statement.Schema.Fields {
+		if namePrimaryKey == field.Name {
+			switch db.Statement.ReflectValue.Kind() {
+			case reflect.Slice, reflect.Array:
+				for i := 0; i < db.Statement.ReflectValue.Len(); i++ {
+					// Get value from field
+					if fieldValue, isZero := field.ValueOf(db.Statement.Context, db.Statement.ReflectValue.Index(i)); !isZero {
+						valuePrimaryKey = interfaceToString(fieldValue)
+					}
+				}
+			case reflect.Struct:
+				// Get value from field
+				fieldValue, isZero := field.ValueOf(db.Statement.Context, db.Statement.ReflectValue)
+				if !isZero {
+					valuePrimaryKey = interfaceToString(fieldValue)
+				}
+			}
+		}
+	}
+	return valuePrimaryKey
 }

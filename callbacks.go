@@ -2,90 +2,62 @@ package loggable
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 
-	"github.com/jinzhu/gorm"
 	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
 )
 
 var im = newIdentityManager()
 
 type UpdateDiff map[string]interface{}
+
 type DiffObject struct {
 	Old interface{} `json:"old"`
 	New interface{} `json:"new"`
 }
 
-// Hook for after_query.
-func (p *Plugin) trackEntity(scope *gorm.Scope) {
-	if !isLoggable(scope.Value) || !isEnabled(scope.Value) {
-		return
-	}
-
-	v := reflect.Indirect(reflect.ValueOf(scope.Value))
-
-	pkName := scope.PrimaryField().Name
-	if v.Kind() == reflect.Slice {
-		for i := 0; i < v.Len(); i++ {
-			sv := reflect.Indirect(v.Index(i))
-			el := sv.Interface()
-			if !isLoggable(el) {
-				continue
-			}
-
-			im.save(el, sv.FieldByName(pkName))
-		}
-		return
-	}
-
-	m := v.Interface()
-	if !isLoggable(m) {
-		return
-	}
-
-	im.save(scope.Value, scope.PrimaryKeyValue())
-}
-
 // Hook for after_create.
-func (p *Plugin) addCreated(scope *gorm.Scope) {
-	if isLoggable(scope.Value) && isEnabled(scope.Value) {
-		_ = p.addRecord(scope, actionCreate)
+func (p *Plugin) addCreated(db *gorm.DB) {
+	if isLoggable(db.Statement.Dest) && isEnabled(db.Statement.Dest) {
+		_ = p.addRecord(db, actionCreate)
 	}
 }
 
 // Hook for after_update.
-func (p *Plugin) addUpdated(scope *gorm.Scope) {
-	if !isLoggable(scope.Value) || !isEnabled(scope.Value) {
+func (p *Plugin) addUpdated(db *gorm.DB) {
+	if !isLoggable(db.Statement.Dest) || !isEnabled(db.Statement.Dest) {
 		return
 	}
 
 	if p.opts.lazyUpdate {
-		record, err := p.GetLastRecord(interfaceToString(scope.PrimaryKeyValue()), false)
+		record, err := p.GetLastRecord(interfaceToString(db.Statement.Schema.PrimaryFields[0]), false)
 		if err == nil {
-			if isEqual(record.RawObject, scope.Value, p.opts.lazyUpdateFields...) {
+			if isEqual(record.RawObject, db.Statement.Dest, p.opts.lazyUpdateFields...) {
 				return
 			}
 		}
 	}
 
-	_ = p.addUpdateRecord(scope, p.opts)
+	_ = p.addUpdateRecord(db, p.opts)
 }
 
 // Hook for after_delete.
-func (p *Plugin) addDeleted(scope *gorm.Scope) {
-	if isLoggable(scope.Value) && isEnabled(scope.Value) {
-		_ = p.addRecord(scope, actionDelete)
+func (p *Plugin) addDeleted(db *gorm.DB) {
+	if isLoggable(db.Statement.Dest) && isEnabled(db.Statement.Dest) {
+		_ = p.addRecord(db, actionDelete)
 	}
 }
 
-func (p *Plugin) addUpdateRecord(scope *gorm.Scope, opts options) error {
-	cl, err := newChangeLog(scope, actionUpdate)
+func (p *Plugin) addUpdateRecord(db *gorm.DB, opts options) error {
+	cl, err := newChangeLog(db, actionUpdate)
 	if err != nil {
 		return err
 	}
 
 	if opts.computeDiff {
-		diff := computeUpdateDiff(scope)
+		diff := computeUpdateDiff(db)
 
 		if diff != nil {
 			jd, err := json.Marshal(diff)
@@ -96,12 +68,11 @@ func (p *Plugin) addUpdateRecord(scope *gorm.Scope, opts options) error {
 			cl.RawDiff = string(jd)
 		}
 	}
-
-	return scope.DB().Table(p.tablename).Create(cl).Error
+	return db.Session(&gorm.Session{NewDB: true}).Table(p.tablename).Create(cl).Error
 }
 
-func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
-	rawObject, err := json.Marshal(scope.Value)
+func newChangeLog(db *gorm.DB, action string) (*ChangeLog, error) {
+	rawObject, err := json.Marshal(db.Statement.Dest)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +81,7 @@ func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
 		return nil, err
 	}
 
-	ui, ok := scope.Get(LoggableUserTag)
+	ui, ok := db.Get(LoggableUserTag)
 	var u *User
 	if !ok {
 		u = &User{"unknown", "system", "unknown"}
@@ -126,36 +97,52 @@ func newChangeLog(scope *gorm.Scope, action string) (*ChangeLog, error) {
 		us = string(ub)
 	}
 
+	scPrimaryFields := db.Statement.Schema.PrimaryFields
+	objectID := ""
+	for k, scPrimaryField := range scPrimaryFields {
+		valuePrimaryField := interfaceToString(getPrimaryKeyValue(db, scPrimaryField.Name))
+		if valuePrimaryField == "" {
+			return nil, errors.New("value primary field is null")
+		}
+		if k == 0 {
+			objectID += valuePrimaryField
+		} else {
+			objectID += "," + valuePrimaryField
+		}
+	}
+
+	objectType := db.Statement.Table
+
 	return &ChangeLog{
 		ID:         id.String(),
 		Action:     action,
-		ObjectID:   interfaceToString(scope.PrimaryKeyValue()),
-		ObjectType: scope.TableName(),
+		ObjectID:   objectID,
+		ObjectType: objectType,
 		RawObject:  string(rawObject),
-		RawMeta:    string(fetchChangeLogMeta(scope)),
+		RawMeta:    string(fetchChangeLogMeta(db)),
 		RawDiff:    "null",
 		CreatedBy:  us,
 	}, nil
 }
 
 // Writes new change log row to db.
-func (p *Plugin) addRecord(scope *gorm.Scope, action string) error {
-	cl, err := newChangeLog(scope, action)
+func (p *Plugin) addRecord(db *gorm.DB, action string) error {
+	cl, err := newChangeLog(db, action)
 	if err != nil {
 		return nil
 	}
 
-	return scope.DB().Table(p.tablename).Create(cl).Error
+	return db.Session(&gorm.Session{NewDB: true}).Table(p.tablename).Create(cl).Error
 }
 
-func computeUpdateDiff(scope *gorm.Scope) UpdateDiff {
-	old, ok := scope.Get(LoggablePrevVersion)
+func computeUpdateDiff(db *gorm.DB) UpdateDiff {
+	old, ok := db.Get(LoggablePrevVersion)
 	if !ok {
 		return nil
 	}
 
 	ov := reflect.Indirect(reflect.ValueOf(old))
-	nv := reflect.Indirect(reflect.ValueOf(scope.Value))
+	nv := reflect.Indirect(reflect.ValueOf(db.Statement.Dest))
 	names := getLoggableFieldNames(old)
 
 	diff := make(UpdateDiff)

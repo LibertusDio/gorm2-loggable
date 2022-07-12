@@ -2,12 +2,14 @@ package loggable
 
 import (
 	"fmt"
+	"gorm.io/gorm/logger"
+	"log"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 var db *gorm.DB
@@ -30,9 +32,8 @@ func (m MetaModel) Meta() interface{} {
 }
 
 func TestMain(m *testing.M) {
-	database, err := gorm.Open(
-		"postgres",
-		fmt.Sprintf(
+	database, err := gorm.Open(postgres.New(postgres.Config{
+		DSN: fmt.Sprintf(
 			"postgres://%s:%s@%s:%d/%s?sslmode=disable",
 			"root",
 			"keepitsimple",
@@ -40,18 +41,27 @@ func TestMain(m *testing.M) {
 			5432,
 			"loggable",
 		),
+		PreferSimpleProtocol: true,
+	}))
+	if err != nil {
+		fmt.Println(err)
+		panic(err)
+	}
+	database.Logger = logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			SlowThreshold:             time.Second, // Slow SQL threshold
+			LogLevel:                  logger.Info, // Log level
+			IgnoreRecordNotFoundError: true,        // Ignore ErrRecordNotFound error for logger
+			Colorful:                  true,        // Disable color
+		},
 	)
+	_, err = Register(database, "change_logs")
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
 	}
-	database = database.LogMode(true)
-	_, err = Register(database, "")
-	if err != nil {
-		fmt.Println(err)
-		panic(err)
-	}
-	err = database.AutoMigrate(SomeType{}).Error
+	err = database.AutoMigrate(SomeType{})
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
